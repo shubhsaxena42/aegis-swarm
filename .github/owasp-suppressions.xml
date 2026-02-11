@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OWASP Dependency-Check Suppression File
+  ════════════════════════════════════════
+  Add false-positive CVEs here to suppress them from future scans.
+  Docs: https://jeremylong.github.io/DependencyCheck/general/suppression.html
+
+  Example:
+  <suppress>
+    <notes>This CVE does not apply because we don't use the affected feature.</notes>
+    <cve>CVE-2021-XXXXX</cve>
+  </suppress>
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+  <!-- Suppress false positives below this line -->
+
+</suppressions>

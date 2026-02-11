@@ -1,0 +1,105 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Aegis Swarm — Persistent Volumes (HostPath for Local/Single-Node)
+#  Only required if dynamic volume provisioning (StorageClass) is NOT available.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── 1. Redpanda Data Volume ────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: redpanda-pv
+  labels:
+    app: redpanda
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data/redpanda"
+  persistentVolumeReclaimPolicy: Retain
+
+---
+# ── 2. PostgreSQL Data Volume ──────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgres-pv
+  labels:
+    app: postgres
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data/postgres"
+  persistentVolumeReclaimPolicy: Retain
+
+---
+# ── 3. MinIO Data Volume ───────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: minio-pv
+  labels:
+    app: minio
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data/minio"
+  persistentVolumeReclaimPolicy: Retain
+
+---
+# ── 4. Prometheus Data Volume ──────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: prometheus-pv
+  labels:
+    app: prometheus
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data/prometheus"
+  persistentVolumeReclaimPolicy: Retain
+
+---
+# ── 5. Grafana Data Volume ─────────────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grafana-pv
+  labels:
+    app: grafana
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data/grafana"
+  persistentVolumeReclaimPolicy: Retain
+
+---
+# ── 6. Elasticsearch Data Volume ───────────────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: elasticsearch-pv
+  labels:
+    app: elasticsearch
+spec:
+  capacity:
+    storage: 30Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/data/elasticsearch"
+  persistentVolumeReclaimPolicy: Retain

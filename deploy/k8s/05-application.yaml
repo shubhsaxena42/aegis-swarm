@@ -1,0 +1,141 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Aegis Swarm Application — Main Deployment
+#  Includes: Ray Serve (YOLO inference), LangGraph Mission Controller
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Main App Deployment ────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-swarm-app
+  namespace: aegis-swarm
+  labels:
+    app: aegis-swarm
+    component: core
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: aegis-swarm
+      component: core
+  template:
+    metadata:
+      labels:
+        app: aegis-swarm
+        component: core
+    spec:
+      serviceAccountName: aegis-swarm-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: aegis-swarm
+          image: aegis-swarm:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8265
+              name: ray-dashboard
+          envFrom:
+            - configMapRef:
+                name: aegis-config
+            - secretRef:
+                name: aegis-secrets
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-swarm-app
+  namespace: aegis-swarm
+spec:
+  selector:
+    app: aegis-swarm
+    component: core
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+    - port: 8265
+      targetPort: 8265
+      name: ray-dashboard
+
+---
+# ── ServiceAccount ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aegis-swarm-sa
+  namespace: aegis-swarm
+  labels:
+    app: aegis-swarm
+
+---
+# ── HPA: Auto-scale app based on CPU ──────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aegis-swarm-hpa
+  namespace: aegis-swarm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aegis-swarm-app
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# ── PodDisruptionBudget ────────────────────────────────────────────────────────
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aegis-swarm-pdb
+  namespace: aegis-swarm
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: aegis-swarm
+      component: core

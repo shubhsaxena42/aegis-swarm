@@ -1,0 +1,31 @@
+# ═══════════════════════════════════════════════════════════════
+#  DVC Configuration — Aegis Swarm
+# ═══════════════════════════════════════════════════════════════
+#
+#  DVC (Data Version Control) tracks large binary files (datasets,
+#  model weights) that shouldn't live in Git.
+#
+#  Remote: MinIO (S3-compatible) — same bucket used by infrastructure
+#
+#  Usage:
+#    dvc init
+#    dvc remote add -d minio s3://dvc-storage
+#    dvc remote modify minio endpointurl http://localhost:9000
+#    dvc remote modify minio access_key_id minioadmin
+#    dvc remote modify minio secret_access_key minioadmin123
+#    dvc push
+#    dvc pull
+
+[core]
+    remote = minio
+    autostage = true
+
+['remote "minio"']
+    url = s3://dvc-storage
+    endpointurl = http://localhost:9000
+    access_key_id = minioadmin
+    secret_access_key = minioadmin123
+
+['remote "s3-prod"']
+    url = s3://aegis-swarm-dvc-prod
+    region = us-east-1

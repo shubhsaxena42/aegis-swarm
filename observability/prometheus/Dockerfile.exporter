@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    prometheus-client==0.21.1 \
+    confluent-kafka==2.6.1
+
+COPY drone_metrics_exporter.py .
+
+EXPOSE 9100
+
+USER nobody
+
+CMD ["python", "drone_metrics_exporter.py"]

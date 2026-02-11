@@ -1,0 +1,58 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ArgoCD — GitOps Configuration
+#  Purpose: Automatically syncs K8s state with this Git repository
+# ═══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: aegis-project
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "Aegis Swarm - Drone Fleet Management System"
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: aegis-swarm
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aegis-swarm
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: aegis-project
+  source:
+    repoURL: https://github.com/shubhsaxena42/aegis-swarm.git
+    targetRevision: HEAD
+    path: deploy/k8s
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: aegis-swarm
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

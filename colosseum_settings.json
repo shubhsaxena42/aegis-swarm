@@ -1,0 +1,228 @@
+{
+    "SettingsVersion": 1.2,
+    "SimMode": "Multirotor",
+    "ClockType": "SteppableClock",
+    "ViewMode": "NoDisplay",
+    "Vehicles": {
+        "Drone1": {
+            "VehicleType": "SimpleFlight",
+            "DefaultVehicleState": "Armed",
+            "AutoCreate": true,
+            "EnableCollisionPassthrough": false,
+            "EnableCollisions": true,
+            "X": 0.0,
+            "Y": 0.0,
+            "Z": 0.0,
+            "Yaw": 0.0,
+            "Cameras": {
+                "front_center": {
+                    "CaptureSettings": [
+                        {
+                            "ImageType": 0,
+                            "Width": 1280,
+                            "Height": 720,
+                            "FOV_Degrees": 90,
+                            "TargetGamma": 1.0
+                        }
+                    ],
+                    "X": 0.25,
+                    "Y": 0.0,
+                    "Z": -0.1,
+                    "Pitch": -15.0,
+                    "Roll": 0.0,
+                    "Yaw": 0.0
+                }
+            },
+            "Sensors": {
+                "Imu": {
+                    "SensorType": 2,
+                    "Enabled": true
+                },
+                "Gps": {
+                    "SensorType": 3,
+                    "Enabled": true
+                },
+                "Barometer": {
+                    "SensorType": 1,
+                    "Enabled": true
+                }
+            }
+        },
+        "Drone2": {
+            "VehicleType": "SimpleFlight",
+            "DefaultVehicleState": "Armed",
+            "AutoCreate": true,
+            "EnableCollisions": true,
+            "X": 3.0,
+            "Y": 0.0,
+            "Z": 0.0,
+            "Yaw": 0.0,
+            "Cameras": {
+                "front_center": {
+                    "CaptureSettings": [
+                        {
+                            "ImageType": 0,
+                            "Width": 1280,
+                            "Height": 720,
+                            "FOV_Degrees": 90
+                        }
+                    ],
+                    "X": 0.25,
+                    "Y": 0.0,
+                    "Z": -0.1,
+                    "Pitch": -15.0,
+                    "Roll": 0.0,
+                    "Yaw": 0.0
+                }
+            },
+            "Sensors": {
+                "Imu": {
+                    "SensorType": 2,
+                    "Enabled": true
+                },
+                "Gps": {
+                    "SensorType": 3,
+                    "Enabled": true
+                },
+                "Barometer": {
+                    "SensorType": 1,
+                    "Enabled": true
+                }
+            }
+        },
+        "Drone3": {
+            "VehicleType": "SimpleFlight",
+            "DefaultVehicleState": "Armed",
+            "AutoCreate": true,
+            "EnableCollisions": true,
+            "X": 6.0,
+            "Y": 0.0,
+            "Z": 0.0,
+            "Yaw": 0.0,
+            "Cameras": {
+                "front_center": {
+                    "CaptureSettings": [
+                        {
+                            "ImageType": 0,
+                            "Width": 1280,
+                            "Height": 720,
+                            "FOV_Degrees": 90
+                        }
+                    ],
+                    "X": 0.25,
+                    "Y": 0.0,
+                    "Z": -0.1,
+                    "Pitch": -15.0,
+                    "Roll": 0.0,
+                    "Yaw": 0.0
+                }
+            },
+            "Sensors": {
+                "Imu": {
+                    "SensorType": 2,
+                    "Enabled": true
+                },
+                "Gps": {
+                    "SensorType": 3,
+                    "Enabled": true
+                },
+                "Barometer": {
+                    "SensorType": 1,
+                    "Enabled": true
+                }
+            }
+        },
+        "Drone4": {
+            "VehicleType": "SimpleFlight",
+            "DefaultVehicleState": "Armed",
+            "AutoCreate": true,
+            "EnableCollisions": true,
+            "X": 9.0,
+            "Y": 0.0,
+            "Z": 0.0,
+            "Yaw": 0.0,
+            "Cameras": {
+                "front_center": {
+                    "CaptureSettings": [
+                        {
+                            "ImageType": 0,
+                            "Width": 1280,
+                            "Height": 720,
+                            "FOV_Degrees": 90
+                        }
+                    ],
+                    "X": 0.25,
+                    "Y": 0.0,
+                    "Z": -0.1,
+                    "Pitch": -15.0,
+                    "Roll": 0.0,
+                    "Yaw": 0.0
+                }
+            },
+            "Sensors": {
+                "Imu": {
+                    "SensorType": 2,
+                    "Enabled": true
+                },
+                "Gps": {
+                    "SensorType": 3,
+                    "Enabled": true
+                },
+                "Barometer": {
+                    "SensorType": 1,
+                    "Enabled": true
+                }
+            }
+        },
+        "Drone5": {
+            "VehicleType": "SimpleFlight",
+            "DefaultVehicleState": "Armed",
+            "AutoCreate": true,
+            "EnableCollisions": true,
+            "X": 12.0,
+            "Y": 0.0,
+            "Z": 0.0,
+            "Yaw": 0.0,
+            "Cameras": {
+                "front_center": {
+                    "CaptureSettings": [
+                        {
+                            "ImageType": 0,
+                            "Width": 1280,
+                            "Height": 720,
+                            "FOV_Degrees": 90
+                        }
+                    ],
+                    "X": 0.25,
+                    "Y": 0.0,
+                    "Z": -0.1,
+                    "Pitch": -15.0,
+                    "Roll": 0.0,
+                    "Yaw": 0.0
+                }
+            },
+            "Sensors": {
+                "Imu": {
+                    "SensorType": 2,
+                    "Enabled": true
+                },
+                "Gps": {
+                    "SensorType": 3,
+                    "Enabled": true
+                },
+                "Barometer": {
+                    "SensorType": 1,
+                    "Enabled": true
+                }
+            }
+        }
+    },
+    "SubWindows": [
+        {
+            "WindowID": 0,
+            "CameraName": "front_center",
+            "ImageType": 0,
+            "VehicleName": "Drone1"
+        }
+    ]
+}

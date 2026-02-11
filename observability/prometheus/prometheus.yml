@@ -1,0 +1,86 @@
+# ═══════════════════════════════════════════════════════════════
+#  Prometheus Configuration — Aegis Swarm
+# ═══════════════════════════════════════════════════════════════
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    cluster: "aegis-swarm"
+    environment: "production"
+
+# ─── Alert Rules ──────────────────────────────────────────────
+rule_files:
+  - "alerts.yml"
+
+# ─── Scrape Targets ──────────────────────────────────────────
+scrape_configs:
+  # ── Prometheus Self-Monitoring ──────────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: "prometheus"
+
+  # ── Drone Fleet Metrics Exporter ────────────────────────────
+  # Custom Python exporter that consumes telemetry from Redpanda
+  # and exposes drone health metrics
+  - job_name: "drone-fleet"
+    scrape_interval: 5s # High frequency for real-time drone data
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["drone-metrics-exporter:9100"]
+        labels:
+          service: "drone-fleet"
+          component: "telemetry"
+
+  # ── Apache Flink Metrics ────────────────────────────────────
+  - job_name: "flink"
+    scrape_interval: 10s
+    static_configs:
+      - targets:
+          - "flink-jobmanager:9249"
+          - "flink-taskmanager:9249"
+        labels:
+          service: "flink"
+          component: "stream-processing"
+
+  # ── Redpanda Metrics ────────────────────────────────────────
+  - job_name: "redpanda"
+    scrape_interval: 10s
+    static_configs:
+      - targets: ["redpanda:9644"]
+        labels:
+          service: "redpanda"
+          component: "messaging"
+    metrics_path: /public_metrics
+
+  # ── MLFlow Metrics ──────────────────────────────────────────
+  - job_name: "mlflow"
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["mlflow:5000"]
+        labels:
+          service: "mlflow"
+          component: "experiment-tracking"
+    metrics_path: /metrics
+
+  # ── MinIO Metrics ───────────────────────────────────────────
+  - job_name: "minio"
+    scrape_interval: 30s
+    metrics_path: /minio/v2/metrics/cluster
+    static_configs:
+      - targets: ["minio:9000"]
+        labels:
+          service: "minio"
+          component: "object-storage"
+
+  # ── PostgreSQL (via pg_exporter if deployed) ────────────────
+  - job_name: "postgres"
+    scrape_interval: 30s
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+        labels:
+          service: "postgres"
+          component: "database"

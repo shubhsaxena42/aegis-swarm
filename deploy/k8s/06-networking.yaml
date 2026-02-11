@@ -1,0 +1,177 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Ingress + NetworkPolicies — Traffic Routing & Security
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Ingress (NGINX) ────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aegis-swarm-ingress
+  namespace: aegis-swarm
+  labels:
+    app: aegis-swarm
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - aegis.example.com
+      secretName: aegis-tls
+  rules:
+    - host: aegis.example.com
+      http:
+        paths:
+          # Main application
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aegis-swarm-app
+                port:
+                  number: 8080
+
+          # MLFlow UI
+          - path: /mlflow
+            pathType: Prefix
+            backend:
+              service:
+                name: mlflow
+                port:
+                  number: 5000
+
+          # Grafana dashboards
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+
+          # Flink Web UI
+          - path: /flink
+            pathType: Prefix
+            backend:
+              service:
+                name: flink-jobmanager
+                port:
+                  number: 8081
+
+          # Kibana UI (Logs)
+          - path: /kibana
+            pathType: Prefix
+            backend:
+              service:
+                name: kibana
+                port:
+                  number: 5601
+
+          # Jaeger UI (Traces)
+          - path: /jaeger
+            pathType: Prefix
+            backend:
+              service:
+                name: jaeger
+                port:
+                  number: 16686
+
+          # Redpanda Console
+          - path: /redpanda
+            pathType: Prefix
+            backend:
+              service:
+                name: redpanda-console
+                port:
+                  number: 8080
+
+---
+# ── NetworkPolicy: Default Deny ───────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: aegis-swarm
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+
+---
+# ── NetworkPolicy: Allow internal communication ───────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal
+  namespace: aegis-swarm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: aegis-swarm
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: aegis-swarm
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: aegis-swarm
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+
+---
+# ── NetworkPolicy: Allow ingress to app ───────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-ingress
+  namespace: aegis-swarm
+spec:
+  podSelector:
+    matchLabels:
+      app: aegis-swarm
+  policyTypes:
+    - Ingress
+  ingress:
+    - from: []
+      ports:
+        - port: 8080
+          protocol: TCP
+
+---
+# ── NetworkPolicy: Allow Prometheus scraping ──────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape
+  namespace: aegis-swarm
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - port: 9100
+          protocol: TCP
+        - port: 9249
+          protocol: TCP
+        - port: 9644
+          protocol: TCP

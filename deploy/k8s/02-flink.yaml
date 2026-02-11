@@ -1,0 +1,197 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Apache Flink — Stream Processing (JobManager + TaskManager)
+#  Used for: Real-time drone health scoring, anomaly detection
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── Flink ConfigMap ────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-config
+  namespace: aegis-swarm
+data:
+  flink-conf.yaml: |
+    jobmanager.rpc.address: flink-jobmanager
+    jobmanager.memory.process.size: 1600m
+    taskmanager.memory.process.size: 2048m
+    taskmanager.numberOfTaskSlots: 4
+    state.backend: rocksdb
+    state.checkpoints.dir: file:///opt/flink/checkpoints
+    state.savepoints.dir: file:///opt/flink/savepoints
+    execution.checkpointing.interval: 60000
+    execution.checkpointing.mode: EXACTLY_ONCE
+    execution.checkpointing.min-pause: 5000
+    restart-strategy: fixed-delay
+    restart-strategy.fixed-delay.attempts: 3
+    restart-strategy.fixed-delay.delay: 10s
+    metrics.reporters: prom
+    metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+    metrics.reporter.prom.port: 9249
+
+---
+# ── JobManager Deployment ──────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-jobmanager
+  namespace: aegis-swarm
+  labels:
+    app: flink
+    component: jobmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink
+      component: jobmanager
+  template:
+    metadata:
+      labels:
+        app: flink
+        component: jobmanager
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9249"
+    spec:
+      containers:
+        - name: jobmanager
+          image: flink:1.20-scala_2.12-java17
+          args: ["jobmanager"]
+          ports:
+            - containerPort: 8081
+              name: web-ui
+            - containerPort: 6123
+              name: rpc
+            - containerPort: 9249
+              name: metrics
+          env:
+            - name: TZ
+              value: "UTC"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: flink-config
+              mountPath: /opt/flink/conf/flink-conf.yaml
+              subPath: flink-conf.yaml
+            - name: flink-checkpoints
+              mountPath: /opt/flink/checkpoints
+            - name: flink-jobs
+              mountPath: /opt/flink/usrlib
+          readinessProbe:
+            httpGet:
+              path: /overview
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: flink-config
+          configMap:
+            name: flink-config
+        - name: flink-checkpoints
+          emptyDir: {}
+        - name: flink-jobs
+          emptyDir: {}
+
+---
+# ── TaskManager Deployment ─────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-taskmanager
+  namespace: aegis-swarm
+  labels:
+    app: flink
+    component: taskmanager
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flink
+      component: taskmanager
+  template:
+    metadata:
+      labels:
+        app: flink
+        component: taskmanager
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9249"
+    spec:
+      containers:
+        - name: taskmanager
+          image: flink:1.20-scala_2.12-java17
+          args: ["taskmanager"]
+          ports:
+            - containerPort: 9249
+              name: metrics
+          env:
+            - name: TZ
+              value: "UTC"
+          resources:
+            requests:
+              memory: "1.5Gi"
+              cpu: "500m"
+            limits:
+              memory: "2.5Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: flink-config
+              mountPath: /opt/flink/conf/flink-conf.yaml
+              subPath: flink-conf.yaml
+            - name: flink-checkpoints
+              mountPath: /opt/flink/checkpoints
+            - name: flink-jobs
+              mountPath: /opt/flink/usrlib
+      volumes:
+        - name: flink-config
+          configMap:
+            name: flink-config
+        - name: flink-checkpoints
+          emptyDir: {}
+        - name: flink-jobs
+          emptyDir: {}
+
+---
+# ── Flink Services ─────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-jobmanager
+  namespace: aegis-swarm
+  labels:
+    app: flink
+    component: jobmanager
+spec:
+  selector:
+    app: flink
+    component: jobmanager
+  ports:
+    - port: 8081
+      targetPort: 8081
+      name: web-ui
+    - port: 6123
+      targetPort: 6123
+      name: rpc
+    - port: 9249
+      targetPort: 9249
+      name: metrics
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-taskmanager
+  namespace: aegis-swarm
+spec:
+  selector:
+    app: flink
+    component: taskmanager
+  ports:
+    - port: 9249
+      targetPort: 9249
+      name: metrics

@@ -1,0 +1,46 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Aegis Swarm — Kubernetes Namespace & Shared Resources
+# ═══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aegis-swarm
+  labels:
+    app.kubernetes.io/part-of: aegis-swarm
+    environment: production
+
+---
+# ── ConfigMap: Shared environment variables ────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aegis-config
+  namespace: aegis-swarm
+data:
+  TZ: "UTC"
+  PYTHON_VERSION: "3.11"
+  REDPANDA_BROKER: "redpanda:9092"
+  MLFLOW_TRACKING_URI: "http://mlflow:5000"
+  MLFLOW_S3_ENDPOINT_URL: "http://minio:9000"
+  FLINK_JOBMANAGER_HOST: "flink-jobmanager"
+  PROMETHEUS_URL: "http://prometheus:9090"
+  EXPORTER_PORT: "9100"
+
+---
+# ── Secret: Credentials (base64 encoded) ──────────────────────────────────────
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aegis-secrets
+  namespace: aegis-swarm
+type: Opaque
+stringData:
+  POSTGRES_USER: "mlflow"
+  POSTGRES_PASSWORD: "mlflow-aegis-2024"
+  POSTGRES_DB: "mlflow"
+  MINIO_ROOT_USER: "minioadmin"
+  MINIO_ROOT_PASSWORD: "minioadmin123"
+  AWS_ACCESS_KEY_ID: "minioadmin"
+  AWS_SECRET_ACCESS_KEY: "minioadmin123"
+  GRAFANA_PASSWORD: "aegis-swarm-2024"

@@ -1,0 +1,362 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║             AEGIS SWARM — Infrastructure Docker Compose                    ║
+# ║  Services: Redpanda · Flink · Prometheus · Grafana · MLFlow · MinIO        ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+version: "3.9"
+
+x-common-env: &common-env
+  TZ: UTC
+
+networks:
+  aegis-net:
+    driver: bridge
+    name: aegis-swarm-network
+
+volumes:
+  redpanda-data:
+  minio-data:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+  mlflow-artifacts:
+  flink-checkpoints:
+
+services:
+
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │  REDPANDA — Kafka-Compatible Streaming Platform                        │
+  # │  Used for: Drone telemetry ingestion, event streaming                  │
+  # └─────────────────────────────────────────────────────────────────────────┘
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.1
+    container_name: aegis-redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      - --memory 1G
+      - --default-log-level=info
+    ports:
+      - "19092:19092"   # Kafka API
+      - "18082:18082"   # Pandaproxy (HTTP)
+      - "18081:18081"   # Schema Registry
+      - "9644:9644"     # Admin API + Prometheus metrics
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks:
+      - aegis-net
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -q 'HEALTHY'"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    environment:
+      <<: *common-env
+
+  # ── Redpanda Console (Web UI) ───────────────────────────────────────────
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v2.8.0
+    container_name: aegis-redpanda-console
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *common-env
+      KAFKA_BROKERS: redpanda:9092
+      KAFKA_SCHEMAREGISTRY_ENABLED: "true"
+      KAFKA_SCHEMAREGISTRY_URLS: http://redpanda:8081
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://redpanda:9644
+    networks:
+      - aegis-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  # ── Redpanda Topic Initialization ───────────────────────────────────────
+  redpanda-init:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.3.1
+    container_name: aegis-redpanda-init
+    entrypoint: /bin/bash
+    command: |
+      -c "
+        echo 'Waiting for Redpanda to be ready...'
+        sleep 10
+
+        echo '=== Creating Aegis Swarm Topics ==='
+
+        rpk topic create drone.telemetry \
+          --brokers redpanda:9092 \
+          --partitions 6 \
+          --replicas 1 \
+          --topic-config retention.ms=86400000 \
+          --topic-config cleanup.policy=delete
+
+        rpk topic create drone.health.alerts \
+          --brokers redpanda:9092 \
+          --partitions 3 \
+          --replicas 1 \
+          --topic-config retention.ms=604800000
+
+        rpk topic create drone.inference.results \
+          --brokers redpanda:9092 \
+          --partitions 6 \
+          --replicas 1 \
+          --topic-config retention.ms=86400000
+
+        rpk topic create drone.mission.commands \
+          --brokers redpanda:9092 \
+          --partitions 3 \
+          --replicas 1 \
+          --topic-config retention.ms=604800000
+
+        rpk topic create drone.battery.events \
+          --brokers redpanda:9092 \
+          --partitions 3 \
+          --replicas 1
+
+        rpk topic create drone.metrics.aggregated \
+          --brokers redpanda:9092 \
+          --partitions 3 \
+          --replicas 1
+
+        echo '=== Topics Created ==='
+        rpk topic list --brokers redpanda:9092
+      "
+    networks:
+      - aegis-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │  APACHE FLINK — Stream Processing for Health Analytics                 │
+  # │  Used for: Real-time drone health scoring, anomaly detection           │
+  # └─────────────────────────────────────────────────────────────────────────┘
+  flink-jobmanager:
+    image: flink:1.20-scala_2.12-java17
+    container_name: aegis-flink-jobmanager
+    ports:
+      - "8081:8081"     # Flink Web UI
+    command: jobmanager
+    environment:
+      <<: *common-env
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.memory.process.size: 1600m
+        state.backend: rocksdb
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        state.savepoints.dir: file:///opt/flink/savepoints
+        execution.checkpointing.interval: 60000
+        execution.checkpointing.mode: EXACTLY_ONCE
+        execution.checkpointing.min-pause: 5000
+        restart-strategy: fixed-delay
+        restart-strategy.fixed-delay.attempts: 3
+        restart-strategy.fixed-delay.delay: 10s
+        metrics.reporters: prom
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+      - ./flink/jobs:/opt/flink/usrlib
+      - ./flink/lib:/opt/flink/lib/custom
+    networks:
+      - aegis-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  flink-taskmanager:
+    image: flink:1.20-scala_2.12-java17
+    container_name: aegis-flink-taskmanager
+    command: taskmanager
+    environment:
+      <<: *common-env
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.memory.process.size: 2048m
+        taskmanager.numberOfTaskSlots: 4
+        state.backend: rocksdb
+        state.checkpoints.dir: file:///opt/flink/checkpoints
+        metrics.reporters: prom
+        metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+        metrics.reporter.prom.port: 9249
+    volumes:
+      - flink-checkpoints:/opt/flink/checkpoints
+      - ./flink/jobs:/opt/flink/usrlib
+      - ./flink/lib:/opt/flink/lib/custom
+    networks:
+      - aegis-net
+    depends_on:
+      - flink-jobmanager
+    scale: 2
+
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │  PROMETHEUS — Metrics Collection & Alerting                            │
+  # │  Scrapes: Drones, Flink, Redpanda, MLFlow, Node Exporter              │
+  # └─────────────────────────────────────────────────────────────────────────┘
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: aegis-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - aegis-net
+    depends_on:
+      - redpanda
+    restart: unless-stopped
+
+  # ── Grafana (Dashboarding) ──────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: aegis-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      <<: *common-env
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-aegis-swarm-2024}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./prometheus/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    networks:
+      - aegis-net
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ── Drone Metrics Exporter ──────────────────────────────────────────────
+  drone-metrics-exporter:
+    build:
+      context: .
+      dockerfile: prometheus/Dockerfile.exporter
+    container_name: aegis-drone-exporter
+    ports:
+      - "9100:9100"
+    environment:
+      <<: *common-env
+      REDPANDA_BROKER: redpanda:9092
+      EXPORTER_PORT: "9100"
+    networks:
+      - aegis-net
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ┌─────────────────────────────────────────────────────────────────────────┐
+  # │  MLFLOW — Experiment Tracking & Model Registry                         │
+  # │  Backend: PostgreSQL · Artifacts: MinIO (S3-compatible)                │
+  # └─────────────────────────────────────────────────────────────────────────┘
+  postgres:
+    image: postgres:16-alpine
+    container_name: aegis-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      <<: *common-env
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlflow-aegis-2024}
+      POSTGRES_DB: mlflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - aegis-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    container_name: aegis-minio
+    ports:
+      - "9000:9000"      # S3 API
+      - "9001:9001"      # MinIO Console
+    command: server /data --console-address ":9001"
+    environment:
+      <<: *common-env
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - minio-data:/data
+    networks:
+      - aegis-net
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── MinIO Bucket Initialization ─────────────────────────────────────────
+  minio-init:
+    image: minio/mc:latest
+    container_name: aegis-minio-init
+    entrypoint: /bin/sh
+    command: |
+      -c "
+        sleep 5
+        mc alias set myminio http://minio:9000 minioadmin minioadmin123
+        mc mb myminio/mlflow-artifacts --ignore-existing
+        mc mb myminio/dvc-storage --ignore-existing
+        mc mb myminio/flink-checkpoints --ignore-existing
+        mc mb myminio/drone-datasets --ignore-existing
+
+        mc anonymous set download myminio/mlflow-artifacts
+        echo 'MinIO buckets created successfully'
+      "
+    networks:
+      - aegis-net
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    container_name: aegis-mlflow
+    ports:
+      - "5000:5000"
+    command: >
+      mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --backend-store-uri postgresql://mlflow:mlflow-aegis-2024@postgres:5432/mlflow
+        --default-artifact-root s3://mlflow-artifacts/
+        --serve-artifacts
+    environment:
+      <<: *common-env
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    networks:
+      - aegis-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped

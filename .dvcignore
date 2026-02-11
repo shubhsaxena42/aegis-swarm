@@ -1,0 +1,36 @@
+# DVC .dvcignore — files/directories excluded from DVC tracking
+# Syntax: same as .gitignore
+
+# Python artifacts
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+
+# IDE
+.vscode
+.idea
+
+# Git
+.git
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+
+# Terraform state (tracked separately)
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Infrastructure services (docker volumes, not data)
+infrastructure/
