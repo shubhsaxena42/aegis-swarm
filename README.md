@@ -11,33 +11,33 @@ The system follows an event-driven microservices architecture optimized for low-
 ```mermaid
 graph TD
     subgraph "Edge / Input"
-        Drone[Drone Telemetry] -->|MQTT/HTTP| Ingress[NGINX Ingress]
-        Camera[Video Feed] -->|RTSP/HTTP| Ingress
+        Drone["Drone Telemetry"] -->|MQTT/HTTP| Ingress["NGINX Ingress"]
+        Camera["Video Feed"] -->|RTSP/HTTP| Ingress
     end
 
     subgraph "Core Processing (Kubernetes)"
-        Ingress --> Ray[Ray Serve (YOLOv26)]
-        Ingress --> Redpanda[Redpanda (Kafka API)]
+        Ingress --> Ray["Ray Serve (YOLOv26)"]
+        Ingress --> Redpanda["Redpanda (Kafka API)"]
         
         Ray -->|Inference Results| Redpanda
-        Redpanda -->|Stream| Flink[Apache Flink 1.20]
-        Flink -->|Stateful Analytics| Postgres[(PostgreSQL 16)]
+        Redpanda -->|Stream| Flink["Apache Flink 1.20"]
+        Flink -->|Stateful Analytics| Postgres[("PostgreSQL 16")]
     end
 
     subgraph "MLOps Platform"
-        MLFlow[MLFlow v2.19] --> MinIO[(MinIO S3)]
+        MLFlow["MLFlow v2.19"] --> MinIO[("MinIO S3")]
         MLFlow --> Postgres
         Ray -- Load Model --> MLFlow
     end
 
     subgraph "Observability Stack"
         Prometheus[Prometheus] -->|Scrape| Flink & Redpanda & Ray
-        Prometheus --> Grafana[Grafana 11.4]
+        Prometheus --> Grafana["Grafana 11.4"]
         
-        Filebeat[Filebeat] --> Logstash[Logstash] --> Elastic[(Elasticsearch)]
+        Filebeat[Filebeat] --> Logstash[Logstash] --> Elastic[("Elasticsearch")]
         Kibana[Kibana] --> Elastic
         
-        OTel[OTel Collector] --> Jaeger[Jaeger Traces]
+        OTel["OTel Collector"] --> Jaeger["Jaeger Traces"]
     end
 
 ```
