@@ -82,12 +82,11 @@ jobs:
       # ── IaC: tfsec + Checkov ──
       - name: tfsec Scan
         if: matrix.scan == 'iac'
-        uses: aquasecurity/tfsec-action@v1.0.3
+        uses: aquasecurity/tfsec-sarif-action@v0.1.4
         with:
           working_directory: .
-          format: sarif
           sarif_file: tfsec.sarif
-          soft_fail: true
+        continue-on-error: true
 
       - name: Checkov Scan
         if: matrix.scan == 'iac'

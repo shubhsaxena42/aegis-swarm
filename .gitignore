@@ -1,3 +1,94 @@
+# ═══════════════════════════════════════════════════════
+#  Aegis Swarm — .gitignore
+# ═══════════════════════════════════════════════════════
+
+# ── Secrets & Credentials (NEVER commit these) ─────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+colosseum_settings.json
+
+# ── Personal / Non-public files ────────────────────────
+interview_prep.md
+interview_prep_reorganized.md
+resume.tex
 image.png
+
+# ── Scratch / One-off scripts ───────────────────────────
 visdrone_to_yolo_converter.py
 YOLO_AWS.py
+
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+pip-wheel-metadata/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── ML Models & Datasets (use DVC for these) ───────────
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.pb
+*.h5
+*.safetensors
+datasets/
+data/raw/
+runs/           # YOLO training runs
+*.jpg
+*.jpeg
+*.png
+!docs/**/*.png  # Allow docs screenshots
+
+# ── DVC ────────────────────────────────────────────────
+# (DVC-tracked files are managed via .dvc files, not Git)
+
+# ── Jupyter / IDE ──────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Docker / K8s temp ──────────────────────────────────
+*.tar
+*.tar.gz
+
+# ── CI/CD Cache ────────────────────────────────────────
+.trivy-cache/
+sonar-cache/
+.scannerwork/
+test-results.xml
+coverage.xml
+bandit-report.json
+sbom.json
+sbom.xml
+zap-report.html
+dependency-check-report.*
+
+# ── Observability / Logs ───────────────────────────────
+*.log
+logs/
